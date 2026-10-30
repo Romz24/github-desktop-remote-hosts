@@ -68,6 +68,7 @@ window.remoteHosts = (() => {
 
   // file (optional): scroll to that file in the commit
   function commitURL(webUrl, sha, file) {
+    if (!webUrl) return null;
     switch (site(webUrl)) {
       case 'GitLab':
         // GitLab marks each file in a commit with the SHA-1 of its path.
@@ -79,6 +80,7 @@ window.remoteHosts = (() => {
   }
 
   function issueURL(webUrl) {
+    if (!webUrl) return null;
     return site(webUrl) === 'GitLab' ? `${webUrl}/-/issues/new` : `${webUrl}/issues/new`;
   }
 
@@ -112,10 +114,14 @@ window.remoteHosts = (() => {
 
 '@
 
+# Replacements: @('was', 'becomes').
+# %Name% stands for a name the minifier made up (like Mo, Vo, Lo) - those differ between
+# GitHub Desktop versions. The same %Name% in 'becomes' is put back as it was found.
+
 # main.js: menu labels. __rh is the host name sent by renderer.js ("GitHub", "GitLab", ...).
 $mainChanges = @(
-  @('isChangesFilterVisible:c=!0}){',
-    'isChangesFilterVisible:c=!0,remoteHostName:__rh="GitHub"}){'),
+  @('isChangesFilterVisible:%v%=!0}){',
+    'isChangesFilterVisible:%v%=!0,remoteHostName:__rh="GitHub"}){'),
   @('label:"&View on GitHub"',          'label:`&View on ${__rh}`'),
   @('label:"Create &issue on GitHub"',  'label:`Create &issue on ${__rh}`'),
   @('label:"Compare on &GitHub"',       'label:`Compare on &${__rh}`'),
@@ -124,32 +130,34 @@ $mainChanges = @(
 
 $rendererChanges = @(
   # Send the host name to the menu (and remember the selected repository).
-  @('askForConfirmationOnForcePush:a};',
-    'askForConfirmationOnForcePush:a,remoteHostName:remoteHosts.track(s,e)};'),
+  @('askForConfirmationOnForcePush:%a%};if(null===%repoState%)',
+    'askForConfirmationOnForcePush:%a%,remoteHostName:remoteHosts.track(this.selectedRepository,%repoState%)};if(null===%repoState%)'),
 
-  # Menu: enable the items when the repository has a non-GitHub remote.
-  @('b.setEnabled("view-repository-on-github",n)',
-    'b.setEnabled("view-repository-on-github",n||!!remoteHosts.fromState(t))'),
-  @('b.setEnabled("create-issue-in-repository-on-github",v)',
-    'b.setEnabled("create-issue-in-repository-on-github",v||!!remoteHosts.fromState(t))'),
-  @('b.setEnabled("compare-on-github",n&&h)',
-    'b.setEnabled("compare-on-github",(n||!!remoteHosts.fromState(t))&&h)'),
-  @('b.setEnabled("branch-on-github",n&&h)',
-    'b.setEnabled("branch-on-github",(n||!!remoteHosts.fromState(t))&&h)'),
+  # Menu: enable the items when the repository has a non-GitHub remote (remotePage).
+  @('const %selected%=%app%.selectedState,',
+    'const %selected%=%app%.selectedState,remotePage=remoteHosts.fromState(%selected%),'),
+  @('.setEnabled("view-repository-on-github",%isGitHub%)',
+    '.setEnabled("view-repository-on-github",%isGitHub%||!!remotePage)'),
+  @('.setEnabled("create-issue-in-repository-on-github",%hasIssues%)',
+    '.setEnabled("create-issue-in-repository-on-github",%hasIssues%||!!remotePage)'),
+  @('.setEnabled("compare-on-github",%isGitHub%&&%published%)',
+    '.setEnabled("compare-on-github",(%isGitHub%||!!remotePage)&&%published%)'),
+  @('.setEnabled("branch-on-github",%isGitHub%&&%published%)',
+    '.setEnabled("branch-on-github",(%isGitHub%||!!remotePage)&&%published%)'),
 
   # Repository > View on ...
-  @('const t=Lo(e);t&&this.props.dispatcher.openInBrowser(t)}',
-    'const t=Lo(e)||remoteHosts.fromState(this.state.selectedState,e);t&&this.props.dispatcher.openInBrowser(t)}'),
+  @('viewOnGitHub=e=>{if(!(e instanceof %Repository%))return;const %url%=%gitHubUrl%(e);',
+    'viewOnGitHub=e=>{if(!(e instanceof %Repository%))return;const %url%=%gitHubUrl%(e)||remoteHosts.fromState(this.state.selectedState,e);'),
 
   # Repository > Create issue on ...
-  @('e instanceof Mo&&this.props.dispatcher.openIssueCreationPage(e)}',
-    'e instanceof Mo&&(e.gitHubRepository?this.props.dispatcher.openIssueCreationPage(e):this.props.dispatcher.openInBrowser(remoteHosts.issueURL(remoteHosts.fromState(this.state.selectedState,e))))}'),
+  @('e instanceof %Repository%&&this.props.dispatcher.openIssueCreationPage(e)}',
+    'e instanceof %Repository%&&(e.gitHubRepository?this.props.dispatcher.openIssueCreationPage(e):this.props.dispatcher.openInBrowser(remoteHosts.issueURL(remoteHosts.fromState(this.state.selectedState,e))))}'),
 
   # Branch > View branch on ... / Compare on ...
-  @('return!e||e instanceof Vo||!e.gitHubRepository?null:e.gitHubRepository.htmlURL}',
-    'return!e||e instanceof Vo?null:e.gitHubRepository?e.gitHubRepository.htmlURL:remoteHosts.fromState(this.state.selectedState,e)}'),
-  @('const i=`${t}/${e}/${encodeURIComponent(s.branch.upstreamWithoutRemote)}`;',
-    'const i=this.getRepository().gitHubRepository?`${t}/${e}/${encodeURIComponent(s.branch.upstreamWithoutRemote)}`:remoteHosts.branchURL(t,e,s.branch.upstreamWithoutRemote,n.state.branchesState.defaultBranch);'),
+  @('return!e||e instanceof %CloningRepository%||!e.gitHubRepository?null:e.gitHubRepository.htmlURL}',
+    'return!e||e instanceof %CloningRepository%?null:e.gitHubRepository?e.gitHubRepository.htmlURL:remoteHosts.fromState(this.state.selectedState,e)}'),
+  @('const %url%=`${%base%}/${%action%}/${encodeURIComponent(%tip%.branch.upstreamWithoutRemote)}`;',
+    'const %url%=this.getRepository().gitHubRepository?`${%base%}/${%action%}/${encodeURIComponent(%tip%.branch.upstreamWithoutRemote)}`:remoteHosts.branchURL(%base%,%action%,%tip%.branch.upstreamWithoutRemote,this.state.selectedState.state.branchesState.defaultBranch);'),
 
   # "No local changes" screen: "Open the repository page on ... in your browser"
   @('renderViewOnGitHub(){return null!==this.props.repository.gitHubRepository?this.renderMenuBackedAction("view-repository-on-github","Open the repository page on GitHub in your browser",',
@@ -157,20 +165,16 @@ $rendererChanges = @(
 
   # History: right click on a commit, and on a file of a commit.
   # current() has a `label` and no `endpoint`, which tells it apart from a GitHub repository.
-  @('const c=this.props.gitHubRepository;',
-    'const c=this.props.gitHubRepository||remoteHosts.current();'),
-  @('c&&c.endpoint!==Wr()&&(l="View on GitHub Enterprise")',
-    'c&&c.endpoint!==Wr()&&(l=c.endpoint?"View on GitHub Enterprise":"View on "+c.label)'),
-  @('const u=i.gitHubRepository;',
-    'const u=i.gitHubRepository||remoteHosts.current(i);'),
-  @('u&&u.endpoint!==Wr()&&(h="View on GitHub Enterprise")',
-    'u&&u.endpoint!==Wr()&&(h=u.endpoint?"View on GitHub Enterprise":"View on "+u.label)'),
-  @('if(!n||n instanceof Vo||!n.gitHubRepository)return;const s=cK(n.gitHubRepository,e,t);',
-    'if(!n||n instanceof Vo)return;const s=n.gitHubRepository?cK(n.gitHubRepository,e,t):remoteHosts.commitURL(remoteHosts.fromState(this.state.selectedState,n),e,t);'),
+  @('let %label%="View on GitHub";const %gh%=this.props.gitHubRepository;%gh%&&%gh%.endpoint!==%dotcom%()&&(%label%="View on GitHub Enterprise")',
+    'let %label%="View on GitHub";const %gh%=this.props.gitHubRepository||remoteHosts.current();%gh%&&%gh%.endpoint!==%dotcom%()&&(%label%=%gh%.endpoint?"View on GitHub Enterprise":"View on "+%gh%.label)'),
+  @('let %label%="View on GitHub";const %gh%=%repo%.gitHubRepository;%gh%&&%gh%.endpoint!==%dotcom%()&&(%label%="View on GitHub Enterprise")',
+    'let %label%="View on GitHub";const %gh%=%repo%.gitHubRepository||remoteHosts.current(%repo%);%gh%&&%gh%.endpoint!==%dotcom%()&&(%label%=%gh%.endpoint?"View on GitHub Enterprise":"View on "+%gh%.label)'),
+  @('if(!%repo%||%repo% instanceof %CloningRepository%||!%repo%.gitHubRepository)return;const %url%=%commitUrl%(%repo%.gitHubRepository,e,t);',
+    'if(!%repo%||%repo% instanceof %CloningRepository%)return;const %url%=%repo%.gitHubRepository?%commitUrl%(%repo%.gitHubRepository,e,t):remoteHosts.commitURL(remoteHosts.fromState(this.state.selectedState,%repo%),e,t);'),
 
   # Repository list: right click on the selected repository.
-  @('s=t instanceof Mo&&null!=t.gitHubRepository,',
-    's=t instanceof Mo&&(null!=t.gitHubRepository||!!remoteHosts.current(t)),'),
+  @('=t instanceof %Repository%&&null!=t.gitHubRepository,',
+    '=t instanceof %Repository%&&(null!=t.gitHubRepository||!!remoteHosts.current(t)),'),
   @('{label:"View on GitHub",action:()=>e.onViewOnGitHub(t)',
     '{label:"View on "+(remoteHosts.current(t)?.label??"GitHub"),action:()=>e.onViewOnGitHub(t)')
 )
@@ -179,12 +183,27 @@ $rendererChanges = @(
 # otherwise this GitHub Desktop version has different code and nothing is written.
 function Apply-Changes($text, $changes, $file) {
   foreach ($change in $changes) {
-    $find, $replace = $change
-    $count = [regex]::Matches($text, [regex]::Escape($find)).Count
-    if ($count -ne 1) {
-      throw "${file}: found $count times instead of 1: $find`nThis GitHub Desktop version needs the patch updated. Nothing was changed."
+    $was, $becomes = $change
+
+    # Text -> regex: %Name% matches any name, a repeated %Name% must be the same name.
+    $names = @{}
+    $pattern = [regex]::Replace([regex]::Escape($was), '%(\w+)%', {
+      param($m)
+      $name = $m.Groups[1].Value
+      if ($names.ContainsKey($name)) { return '\k<' + $name + '>' }
+      $names[$name] = $true
+      return '(?<' + $name + '>[\w$]+)'
+    })
+
+    $found = [regex]::Matches($text, $pattern)
+    if ($found.Count -ne 1) {
+      throw "${file}: found $($found.Count) times instead of 1: $was`nThis GitHub Desktop version needs the patch updated. Nothing was changed."
     }
-    $text = $text.Replace($find, $replace)
+    $match = $found[0]
+    foreach ($name in $names.Keys) {
+      $becomes = $becomes.Replace("%$name%", $match.Groups[$name].Value)
+    }
+    $text = $text.Substring(0, $match.Index) + $becomes + $text.Substring($match.Index + $match.Length)
   }
   return $text
 }
@@ -208,12 +227,16 @@ try {
   }
 
   # Always patch the original, so running again (or a newer patch) is safe.
+  function Read-Original($file) {
+    if (Test-Path "$file.orig") { return [IO.File]::ReadAllText("$file.orig") }
+    return [IO.File]::ReadAllText($file)
+  }
+  $newMain = Apply-Changes (Read-Original $main) $mainChanges 'main.js'
+  $newRenderer = $helpers + (Apply-Changes (Read-Original $renderer) $rendererChanges 'renderer.js')
+
   foreach ($file in $main, $renderer) {
     if (-not (Test-Path "$file.orig")) { Copy-Item $file "$file.orig" }
   }
-  $newMain = Apply-Changes ([IO.File]::ReadAllText("$main.orig")) $mainChanges 'main.js'
-  $newRenderer = $helpers + (Apply-Changes ([IO.File]::ReadAllText("$renderer.orig")) $rendererChanges 'renderer.js')
-
   [IO.File]::WriteAllText($main, $newMain)
   [IO.File]::WriteAllText($renderer, $newRenderer)
   Write-Host 'Patched. Restart GitHub Desktop.'
