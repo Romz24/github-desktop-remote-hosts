@@ -12,7 +12,7 @@
 | History → файл коммита → View on … | `/-/commit/<sha>#<файл>` | `/commits/<sha>` | `/commit/<sha>` |
 | Список репозиториев → View on … | `<repo>` (только у выбранного репозитория) | | |
 
-Адрес страницы берётся из URL remote'а (`https://…`, `git@host:…`, `ssh://…:port/…`), название в меню — по хосту (GitLab, Bitbucket, …). Неизвестные хосты считаются GitLab. На экране «No local changes» появляется карточка «Open the repository page on … in your browser». Для GitHub-репозиториев поведение не меняется.
+Адрес страницы берётся из URL remote'а (`https://…`, `git@host:…`, `ssh://…:port/…`), название в меню — по хосту (GitLab, Bitbucket, …). Про остальные хосты GitHub Desktop один раз в фоне спрашивает сервер `/api/v1/version`: если отвечает Gitea/Forgejo (в т.ч. «Only signed in user is allowed…» на закрытом сервере) — это Gitea, иначе GitLab. Ответ запоминается; пока сервер не ответил, хост считается GitLab (подпись в меню обновится при следующем обновлении состояния репозитория). На экране «No local changes» появляется карточка «Open the repository page on … in your browser». Для GitHub-репозиториев поведение не меняется.
 
 «Create pull request» не трогается — он работает через GitHub API.
 

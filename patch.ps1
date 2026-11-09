@@ -45,13 +45,42 @@ window.remoteHosts = (() => {
     return host && path ? `${protocol}//${host}/${path}` : null;
   }
 
-  // Which site it is, by host name. Unknown hosts are taken for self-hosted GitLab.
+  // Which site it is, by host name. Other hosts are asked once in the background whether they
+  // are Gitea/Forgejo (the answer is remembered); until then, and if not, they are taken for GitLab.
   function site(webUrl) {
-    const host = new URL(webUrl).hostname;
+    const url = new URL(webUrl), host = url.hostname;
     if (host.includes('github')) return 'GitHub';
     if (host.includes('bitbucket')) return 'Bitbucket';
     if (host.includes('gitea') || host.includes('codeberg') || host.includes('forgejo')) return 'Gitea';
-    return 'GitLab';
+    return detected(url) || 'GitLab';
+  }
+
+  // Gitea and Forgejo answer /api/v1/version with JSON: {"version":...}, or {"message":...}
+  // when the instance requires signing in. GitLab redirects or says 404 there.
+  const probing = {};
+  function detected(url) {
+    const key = 'remoteHosts.site:' + url.host;
+    let known = null;
+    try { known = localStorage.getItem(key); } catch (e) {}
+    if (known || probing[key]) return known;
+    probing[key] = true;
+    try {
+      const req = require(url.protocol === 'http:' ? 'http' : 'https').get(
+        `${url.protocol}//${url.host}/api/v1/version`, { timeout: 10000 }, res => {
+          let body = '';
+          res.setEncoding('utf8');
+          res.on('data', d => { if (body.length < 4096) body += d; });
+          res.on('end', () => {
+            let json = null;
+            try { json = JSON.parse(body); } catch (e) {}
+            const gitea = !!json && ('version' in json || 'message' in json);
+            try { localStorage.setItem(key, gitea ? 'Gitea' : 'GitLab'); } catch (e) {}
+          });
+        });
+      req.on('timeout', () => req.destroy());
+      req.on('error', () => { probing[key] = false; });   // offline: ask again later
+    } catch (e) {}
+    return null;
   }
 
   // action is 'tree' (View branch) or 'compare' (Compare)
