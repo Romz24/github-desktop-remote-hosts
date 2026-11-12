@@ -1,5 +1,7 @@
 # github-desktop-remote-hosts
 
+**Русский** | [English](README.en.md)
+
 Патч для установленного GitHub Desktop (Windows), который включает пункты меню для репозиториев не на GitHub — GitLab (в т.ч. self-hosted), Bitbucket, Gitea/Codeberg/Forgejo:
 
 | Пункт меню | GitLab | Bitbucket | Gitea |
@@ -7,12 +9,14 @@
 | Repository → View on … | `<repo>` | `<repo>` | `<repo>` |
 | Repository → Create issue on … | `/-/issues/new` | `/issues/new` | `/issues/new` |
 | Branch → View branch on … | `/-/tree/<branch>` | `/src/<branch>` | `/src/branch/<branch>` |
-| Branch → Compare on … | `/-/compare/<default>...<branch>` | `/branches/compare/…` | `/compare/<default>...<branch>` |
+| Branch → Compare on … | `/-/compare/<default>...<branch>` | `/branches/compare/<branch>%0D<default>` | `/compare/<default>...<branch>` |
 | History → коммит → View on … | `/-/commit/<sha>` | `/commits/<sha>` | `/commit/<sha>` |
-| History → файл коммита → View on … | `/-/commit/<sha>#<файл>` | `/commits/<sha>` | `/commit/<sha>` |
-| Список репозиториев → View on … | `<repo>` (только у выбранного репозитория) | | |
+| History → файл коммита → View on … | `/-/commit/<sha>#<SHA-1 пути файла>` | `/commits/<sha>` | `/commit/<sha>` |
+| Список репозиториев → View on … (только у выбранного репозитория) | `<repo>` | `<repo>` | `<repo>` |
 
 Адрес страницы берётся из URL remote'а (`https://…`, `git@host:…`, `ssh://…:port/…`), название в меню — по хосту (GitLab, Bitbucket, …). Про остальные хосты GitHub Desktop один раз в фоне спрашивает сервер `/api/v1/version`: если отвечает Gitea/Forgejo (в т.ч. «Only signed in user is allowed…» на закрытом сервере) — это Gitea, иначе GitLab. Ответ запоминается; пока сервер не ответил, хост считается GitLab (подпись в меню обновится при следующем обновлении состояния репозитория). На экране «No local changes» появляется карточка «Open the repository page on … in your browser». Для GitHub-репозиториев поведение не меняется.
+
+Пункты Branch → … включаются только для опубликованной ветки; если ветка по умолчанию неизвестна, в Compare подставляется `main`.
 
 «Create pull request» не трогается — он работает через GitHub API.
 
@@ -23,7 +27,7 @@
 Патчится самая новая папка `%LOCALAPPDATA%\GitHubDesktop\app-x.y.z`; можно указать путь явно:
 
 ```
-patch.bat C:\Users\<user>\AppData\Local\GitHubDesktop\app-3.6.10
+patch.bat C:\Users\<user>\AppData\Local\GitHubDesktop\app-3.6.11
 ```
 
 **После каждого обновления GitHub Desktop патч надо применить заново** — обновление ставит новую папку `app-x.y.z`. Запускать повторно (и ставить новую версию патча поверх старой) безопасно: патчится всегда оригинал из `.orig`.
